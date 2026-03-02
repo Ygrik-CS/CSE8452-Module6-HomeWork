@@ -1,369 +1,172 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using System.Threading;
+using System;
 
-namespace SingletonTask
+namespace  Strategy
 {
-    class ConfigurationManager
+    public interface IPaymentStrategy
     {
-        private static ConfigurationManager _instance;
-        private static readonly object _lock = new object();
+        void Pay(double val);
+    }
 
-        private Dictionary<string, string> _settings = new Dictionary<string, string>();
-        private string _path = "config.txt";
-
-        private ConfigurationManager()
+    public class CardPayment : IPaymentStrategy
+    {
+        public void Pay(double val)
         {
+            Console.WriteLine($"Оплата картой: {val}");
+        }
+    }
+
+    public class PaypalTransfer : IPaymentStrategy
+    {
+        public void Pay(double val)
+        {
+            Console.WriteLine($"Перевод paypal: {val}");
+        }
+    }
+
+    public class CryptoTransaction : IPaymentStrategy
+    {
+        public void Pay(double val)
+        {
+            Console.WriteLine($"Крипта: {val}");
+        }
+    }
+
+    public class PaymentContext
+    {
+        private IPaymentStrategy _method;
+
+        public void SetStrategy(IPaymentStrategy m)
+        {
+            _method = m;
         }
 
-        public static ConfigurationManager GetInstance()
+        public void ProcessPayment(double val)
         {
-            lock (_lock)
+            if (_method != null)
             {
-                if (_instance == null)
-                    _instance = new ConfigurationManager();
+                _method.Pay(val);
             }
-
-            return _instance;
-        }
-
-        public void LoadSettings()
-        {
-            if (!File.Exists(_path)) return;
-
-            var lines = File.ReadAllLines(_path);
-            foreach (var line in lines)
-            {
-                var p = line.Split('=');
-                if (p.Length == 2)
-                {
-                    //p[0], p[1]
-                    _settings[p[0]] = p[1];
-                }
-            }
-        }
-
-        public void SaveSettings()
-        {
-            var list = new List<string>();
-            foreach (var item in _settings)
-            {
-                list.Add($"{item.Key}={item.Value}");
-            }
-
-            File.WriteAllLines(_path, list);
-        }
-
-        public void LoadFromDatabase(string connStr)
-        {
-            throw new NotImplementedException();
-        }
-
-        public string GetSetting(string key)
-        {
-            if (!_settings.ContainsKey(key))
-                throw new Exception("key not found");
-
-            return _settings[key];
-        }
-
-        public void SetSetting(string key, string val)
-        {
-            if (string.IsNullOrEmpty(key))
-                throw new ArgumentException("bad key");
-
-            _settings[key] = val;
         }
     }
 
     class Program
     {
-        static void Main1()
+        static void Main(string[] args)
         {
-            Thread t1 = new Thread(Test);
-            Thread t2 = new Thread(Test);
-            Thread t3 = new Thread(Test);
+            var ctx = new PaymentContext();
+            Console.WriteLine("Введите сумму:");
+            double s = Convert.ToDouble(Console.ReadLine());
 
-            t1.Start();
-            t2.Start();
-            t3.Start();
+            Console.WriteLine("Способ оплаты (1 - карта, 2 - paypal, 3 - крипта):");
+            string choice = Console.ReadLine();
 
-            t1.Join();
-            t2.Join();
-            t3.Join();
+            if (choice == "1") ctx.SetStrategy(new CardPayment());
+            else if (choice == "2") ctx.SetStrategy(new PaypalTransfer());
+            else if (choice == "3") ctx.SetStrategy(new CryptoTransaction());
 
-            var cfg = ConfigurationManager.GetInstance();
-            cfg.SetSetting("Theme", "Blue");
-            cfg.SetSetting("ShowNotifications", "true");
-            cfg.SetSetting("Language", "Ru"); // и другие
-            cfg.SaveSettings();
-
-            try
-            {
-                Console.WriteLine("theme: " + cfg.GetSetting("Theme"));
-                Console.WriteLine("Notifications: " + cfg.GetSetting("ShowNotifications"));
-                Console.WriteLine("Wrong Key: " + cfg.GetSetting("wrong_key"));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("err: " + ex.Message);
-            }
-
-            Console.ReadLine();
-        }
-
-        static void Test()
-        {
-            var inst = ConfigurationManager.GetInstance();
-            Console.WriteLine($"t:{Thread.CurrentThread.ManagedThreadId} hash:{inst.GetHashCode()}");
+            ctx.ProcessPayment(s);
         }
     }
 }
 
 
-namespace BuilderTask
+
+
+
+
+
+
+
+namespace Observer
 {
-    class Report
+    public interface IObserver
     {
-        public string Header { get; set; }
-        public string Content { get; set; }
-        public string Footer { get; set; }
-
-
-        public string Style { get; set; }
-
-
-        public void EditContent(string newContent)
-        {
-            Content = newContent;
-        }
+        void Update(string n, double v);
     }
 
-
-    interface IReportBuilder
+    public interface ISubject
     {
-        void SetHeader(string header);
-        void SetContent(string content);
-        void SetFooter(string footer);
-        void SetStyle(string style);
-        Report GetReport();
+        void Subscribe(IObserver o);
+        void Unsubscribe(IObserver o);
+        void Notify(string n, double v);
     }
 
-
-    class TextReportBuilder : IReportBuilder
+    public class CurrencyExchange : ISubject
     {
-        private Report _report = new Report();
+        private List<IObserver> _list = new List<IObserver>();
+        private Dictionary<string, double> _rates = new Dictionary<string, double>();
 
-        public void SetHeader(string header)
+        public void Subscribe(IObserver o)
         {
-            _report.Header = header;
+            _list.Add(o);
         }
 
-        public void SetContent(string content)
+        public void Unsubscribe(IObserver o)
         {
-            _report.Content = content;
+            _list.Remove(o);
         }
 
-        public void SetFooter(string footer)
+        public void Notify(string n, double v)
         {
-            _report.Footer = footer;
-        }
-
-        public void SetStyle(string style)
-        {
-            _report.Style = style;
-        }
-
-        public Report GetReport()
-        {
-            return _report;
-        }
-    }
-
-
-    class HtmlReportBuilder : IReportBuilder
-    {
-        private Report _report = new Report();
-
-        public void SetHeader(string header)
-        {
-            _report.Header = "<h1>" + header + "</h1>";
-        }
-
-        public void SetContent(string content)
-        {
-            _report.Content = "<p>" + content + "</p>";
-        }
-
-        public void SetFooter(string footer)
-        {
-            _report.Footer = "<footer>" + footer + "</footer>";
-        }
-
-        public void SetStyle(string style)
-        {
-            _report.Style = style;
-        }
-
-        public Report GetReport()
-        {
-            return _report;
-        }
-    }
-
-
-    class XmlReportBuilder : IReportBuilder
-    {
-        private Report _report = new Report();
-
-        public void SetHeader(string header)
-        {
-            _report.Header = "<header>" + header + "</header>";
-        }
-
-        public void SetContent(string content)
-        {
-            _report.Content = "<content>" + content + "</content>";
-        }
-
-        public void SetFooter(string footer)
-        {
-            _report.Footer = "<footer>" + footer + "</footer>";
-        }
-
-        public void SetStyle(string style)
-        {
-            _report.Style = style;
-        }
-
-        public Report GetReport()
-        {
-            return _report;
-        }
-    }
-
-
-    class ReportDirector
-    {
-        public void ConstructReport(IReportBuilder builder)
-        {
-            builder.SetHeader("Заголовок");
-            builder.SetContent("Текст отчета");
-            builder.SetFooter("Подвал");
-            builder.SetStyle("Базовый стиль");
-        }
-    }
-
-
-    class Program
-    {
-        static void Main2()
-        {
-            ReportDirector director = new ReportDirector();
-
-            IReportBuilder textBuilder = new TextReportBuilder();
-            director.ConstructReport(textBuilder);
-            Report rep1 = textBuilder.GetReport();
-
-            Console.WriteLine(rep1.Header);
-            Console.WriteLine(rep1.Content);
-            Console.WriteLine(rep1.Footer);
-            Console.WriteLine();
-
-            IReportBuilder htmlBuilder = new HtmlReportBuilder();
-            director.ConstructReport(htmlBuilder);
-            Report rep2 = htmlBuilder.GetReport();
-
-            Console.WriteLine(rep2.Header);
-            Console.WriteLine(rep2.Content);
-            Console.WriteLine(rep2.Footer);
-            Console.WriteLine();
-
-            IReportBuilder xmlBuilder = new XmlReportBuilder();
-            director.ConstructReport(xmlBuilder);
-            Report rep3 = xmlBuilder.GetReport();
-
-            rep3.EditContent("<content>Новый изменение текст</content>");
-            Console.WriteLine(rep3.Content);
-        }
-    }
-}
-
-
-namespace PrototypeTask
-{
-    class Product : ICloneable
-    {
-        public string Name { get; set; }
-        public double Price { get; set; }
-        public int Amount { get; set; }
-
-        public object Clone()
-        {
-            return this.MemberwiseClone();
-        }
-    }
-
-    class Discount : ICloneable
-    {
-        public string Name { get; set; }
-        public double Value { get; set; }
-
-        public object Clone()
-        {
-            return this.MemberwiseClone();
-        }
-    }
-
-    class Order : ICloneable
-    {
-        public List<Product> Products { get; set; } = new List<Product>();
-        public double Delivery { get; set; }
-        public List<Discount> Discounts { get; set; } = new List<Discount>();
-        public string PayMethod { get; set; }
-
-        public object Clone()
-        {
-            Order clone = new Order();
-            clone.Delivery = this.Delivery;
-            clone.PayMethod = this.PayMethod;
-
-            foreach (var p in this.Products)
+            foreach (var item in _list)
             {
-                clone.Products.Add((Product)p.Clone());
+                item.Update(n, v);
             }
+        }
 
-            foreach (var d in this.Discounts)
+        public void SetRate(string n, double v)
+        {
+            _rates[n] = v;
+            Notify(n, v);
+        }
+    }
+
+    public class BankScreen : IObserver
+    {
+        public void Update(string n, double v)
+        {
+            Console.WriteLine($"Экран: {n} = {v}");
+        }
+    }
+
+    public class MobileApp : IObserver
+    {
+        public void Update(string n, double v)
+        {
+            if (v < 100)
             {
-                clone.Discounts.Add((Discount)d.Clone());
+                Console.WriteLine($"Приложение: {n} упал");
             }
+        }
+    }
 
-            return clone;
+    public class DbLog : IObserver
+    {
+        public void Update(string n, double v)
+        {
+            Console.WriteLine($"База: {n} -> {v}");
         }
     }
 
     class Program
     {
-        static void Main()
+        static void Main1(string[] args)
         {
-            Order ord1 = new Order();
-            ord1.PayMethod = "Method 1";
-            ord1.Delivery = 100;
+            var ex = new CurrencyExchange();
+            var screen = new BankScreen();
+            var app = new MobileApp();
+            var log = new DbLog();
 
-            Product p1 = new Product { Name = "Prod 1", Price = 10, Amount = 1 };
-            ord1.Products.Add(p1);
+            ex.Subscribe(screen);
+            ex.Subscribe(app);
+            ex.Subscribe(log);
 
-            Discount d1 = new Discount { Name = "Disc 1", Value = 5 };
-            ord1.Discounts.Add(d1);
-
-            Order ord2 = (Order)ord1.Clone();
-
-            ord2.PayMethod = "Method 2";
-            ord2.Products[0].Name = "Prod 2";
-
-
-            Console.WriteLine(ord1.PayMethod + " | " + ord1.Products[0].Name);
-            Console.WriteLine(ord2.PayMethod + " | " + ord2.Products[0].Name);
+            ex.SetRate("USD", 95.6);
+        
+            ex.Unsubscribe(screen);
+        
+            ex.SetRate("USD", 92.1);
+            ex.SetRate("EUR", 106.0);
         }
     }
 }
